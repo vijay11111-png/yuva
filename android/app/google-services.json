@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "112709455560",
+    "project_id": "theyuvaapp",
+    "storage_bucket": "theyuvaapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:112709455560:android:6163270a873bb940989ffd",
+        "android_client_info": {
+          "package_name": "com.example.yuva"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCE2FaFqwb_o8rUlywWOiyxE-clb-HJtW8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
