@@ -1,269 +1,126 @@
-import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:get/get.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../models/user_model.dart';
+import '../models/user_registration_model.dart';
 
-class RegistrationService extends GetxService {
+class RegistrationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // Offline storage key
-  static const String _offlineDataKey = 'registration_offline_data';
-  static const String _pendingUploadsKey = 'registration_pending_uploads';
-
-  // Observable variables
-  final RxBool isOnline = true.obs;
-  final RxBool isSaving = false.obs;
-  final RxString errorMessage = ''.obs;
-
-  @override
-  void onInit() {
-    super.onInit();
-    _checkConnectivity();
-  }
-
-  // Check if user is connected to internet
-  void _checkConnectivity() {
-    // This will be enhanced with connectivity_plus in later phases
-    isOnline.value = true; // Placeholder
-  }
-
-  // Save user data to Firestore
-  Future<bool> saveUserData(UserModel user) async {
+  // Save user registration data to Firestore
+  Future<String> saveUserRegistration(UserRegistrationModel userData) async {
     try {
-      isSaving.value = true;
-      errorMessage.value = '';
+      // Check if user already exists
+      final QuerySnapshot existingUser =
+          await _firestore
+              .collection('users')
+              .where('phoneNumber', isEqualTo: userData.phoneNumber)
+              .limit(1)
+              .get();
 
-      final User? currentUser = _auth.currentUser;
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
+      String documentId;
+
+      if (existingUser.docs.isNotEmpty) {
+        // Update existing user
+        documentId = existingUser.docs.first.id;
+        await existingUser.docs.first.reference.update({
+          ...userData.toMap(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      } else {
+        // Create new user
+        final DocumentReference newUserRef = await _firestore
+            .collection('users')
+            .add(userData.toMap());
+        documentId = newUserRef.id;
       }
 
-      // Save to Firestore
-      await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .set(user.toJson());
-
-      // Clear offline data if save was successful
-      await _clearOfflineData();
-
-      return true;
+      return documentId;
     } catch (e) {
-      errorMessage.value = 'Failed to save user data: ${e.toString()}';
-
-      // Save to offline storage if online save fails
-      await _saveOfflineData(user);
-
-      return false;
-    } finally {
-      isSaving.value = false;
+      throw Exception('Failed to save user registration: $e');
     }
   }
 
-  // Get user data from Firestore
-  Future<UserModel?> getUserData(String userId) async {
+  // Get user registration data by phone number
+  Future<UserRegistrationModel?> getUserRegistration(String phoneNumber) async {
     try {
-      final DocumentSnapshot doc =
-          await _firestore.collection('users').doc(userId).get();
+      final QuerySnapshot doc =
+          await _firestore
+              .collection('users')
+              .where('phoneNumber', isEqualTo: phoneNumber)
+              .limit(1)
+              .get();
 
-      if (doc.exists && doc.data() != null) {
-        return UserModel.fromJson(doc.data() as Map<String, dynamic>, doc.id);
+      if (doc.docs.isNotEmpty) {
+        final userData = doc.docs.first.data() as Map<String, dynamic>;
+        return UserRegistrationModel.fromMap({
+          ...userData,
+          'userId': doc.docs.first.id,
+        });
       }
+
       return null;
     } catch (e) {
-      errorMessage.value = 'Failed to get user data: ${e.toString()}';
-      return null;
+      throw Exception('Failed to get user registration: $e');
     }
   }
 
-  // Check if user profile is complete
-  Future<bool> isProfileComplete(String userId) async {
-    try {
-      final UserModel? user = await getUserData(userId);
-      return user?.isProfileComplete ?? false;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Save data to offline storage
-  Future<void> _saveOfflineData(UserModel user) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userData = user.toJson();
-      await prefs.setString(_offlineDataKey, jsonEncode(userData));
-    } catch (e) {
-      print('Failed to save offline data: $e');
-    }
-  }
-
-  // Get data from offline storage
-  Future<UserModel?> getOfflineData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final userDataString = prefs.getString(_offlineDataKey);
-
-      if (userDataString != null) {
-        final userData = jsonDecode(userDataString) as Map<String, dynamic>;
-        return UserModel.fromJson(userData, 'offline');
-      }
-      return null;
-    } catch (e) {
-      print('Failed to get offline data: $e');
-      return null;
-    }
-  }
-
-  // Clear offline data
-  Future<void> _clearOfflineData() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_offlineDataKey);
-    } catch (e) {
-      print('Failed to clear offline data: $e');
-    }
-  }
-
-  // Sync offline data when back online
-  Future<bool> syncOfflineData() async {
-    try {
-      if (!isOnline.value) return false;
-
-      final UserModel? offlineUser = await getOfflineData();
-      if (offlineUser != null) {
-        final success = await saveUserData(offlineUser);
-        if (success) {
-          await _clearOfflineData();
-        }
-        return success;
-      }
-      return true;
-    } catch (e) {
-      errorMessage.value = 'Failed to sync offline data: ${e.toString()}';
-      return false;
-    }
-  }
-
-  // Update user profile
-  Future<bool> updateUserProfile(
-    String userId,
-    Map<String, dynamic> updates,
+  // Update specific step of registration
+  Future<void> updateRegistrationStep(
+    String phoneNumber,
+    Map<String, dynamic> stepData,
   ) async {
     try {
-      isSaving.value = true;
-      errorMessage.value = '';
+      final QuerySnapshot existingUser =
+          await _firestore
+              .collection('users')
+              .where('phoneNumber', isEqualTo: phoneNumber)
+              .limit(1)
+              .get();
 
-      await _firestore.collection('users').doc(userId).update({
-        ...updates,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-
-      return true;
+      if (existingUser.docs.isNotEmpty) {
+        await existingUser.docs.first.reference.update({
+          ...stepData,
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+      } else {
+        throw Exception('User not found');
+      }
     } catch (e) {
-      errorMessage.value = 'Failed to update profile: ${e.toString()}';
-      return false;
-    } finally {
-      isSaving.value = false;
+      throw Exception('Failed to update registration step: $e');
     }
   }
 
-  // Delete user account
-  Future<bool> deleteUserAccount(String userId) async {
+  // Check if user exists
+  Future<bool> isUserExists(String phoneNumber) async {
     try {
-      isSaving.value = true;
-      errorMessage.value = '';
+      final QuerySnapshot doc =
+          await _firestore
+              .collection('users')
+              .where('phoneNumber', isEqualTo: phoneNumber)
+              .limit(1)
+              .get();
 
-      // Delete from Firestore
-      await _firestore.collection('users').doc(userId).delete();
+      return doc.docs.isNotEmpty;
+    } catch (e) {
+      throw Exception('Failed to check user existence: $e');
+    }
+  }
 
-      // Delete user authentication
-      final User? currentUser = _auth.currentUser;
-      if (currentUser != null) {
-        await currentUser.delete();
+  // Get user document ID by phone number
+  Future<String?> getUserIdByPhone(String phoneNumber) async {
+    try {
+      final QuerySnapshot doc =
+          await _firestore
+              .collection('users')
+              .where('phoneNumber', isEqualTo: phoneNumber)
+              .limit(1)
+              .get();
+
+      if (doc.docs.isNotEmpty) {
+        return doc.docs.first.id;
       }
 
-      // Clear offline data
-      await _clearOfflineData();
-
-      return true;
+      return null;
     } catch (e) {
-      errorMessage.value = 'Failed to delete account: ${e.toString()}';
-      return false;
-    } finally {
-      isSaving.value = false;
+      throw Exception('Failed to get user ID: $e');
     }
-  }
-
-  // Get registration statistics
-  Future<Map<String, dynamic>> getRegistrationStats() async {
-    try {
-      final QuerySnapshot usersSnapshot =
-          await _firestore.collection('users').get();
-
-      final int totalUsers = usersSnapshot.docs.length;
-      final int completedProfiles =
-          usersSnapshot.docs.where((doc) {
-            final data = doc.data() as Map<String, dynamic>?;
-            return data?['isProfileComplete'] == true;
-          }).length;
-
-      return {
-        'totalUsers': totalUsers,
-        'completedProfiles': completedProfiles,
-        'completionRate':
-            totalUsers > 0 ? (completedProfiles / totalUsers) * 100 : 0,
-      };
-    } catch (e) {
-      errorMessage.value = 'Failed to get statistics: ${e.toString()}';
-      return {'totalUsers': 0, 'completedProfiles': 0, 'completionRate': 0};
-    }
-  }
-
-  // Validate user data before saving
-  bool validateUserData(UserModel user) {
-    if (user.fullName.isEmpty || user.fullName.length < 2) {
-      errorMessage.value = 'Full name must be at least 2 characters';
-      return false;
-    }
-
-    if (!user.isEligible) {
-      errorMessage.value = 'User must be at least 13 years old';
-      return false;
-    }
-
-    if (user.gender.isEmpty) {
-      errorMessage.value = 'Gender is required';
-      return false;
-    }
-
-    if (user.location.isEmpty) {
-      errorMessage.value = 'Location is required';
-      return false;
-    }
-
-    if (user.college.isEmpty) {
-      errorMessage.value = 'College is required';
-      return false;
-    }
-
-    if (user.currentYear.isEmpty) {
-      errorMessage.value = 'Current year is required';
-      return false;
-    }
-
-    if (user.interests.isEmpty) {
-      errorMessage.value = 'At least one interest is required';
-      return false;
-    }
-
-    if (user.interests.length > 5) {
-      errorMessage.value = 'Maximum 5 interests allowed';
-      return false;
-    }
-
-    return true;
   }
 }

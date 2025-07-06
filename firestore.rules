@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can only read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Pending colleges - users can create, only admin can read/write
+    match /pending_colleges/{docId} {
+      allow create: if request.auth != null;
+      allow read, write, delete: if false; // Only admin through Firebase Console
+    }
+    
+    // Pending courses - users can create, only admin can read/write
+    match /pending_courses/{docId} {
+      allow create: if request.auth != null;
+      allow read, write, delete: if false; // Only admin through Firebase Console
+    }
+    
+    // Pending interests - users can create, only admin can read/write
+    match /pending_interests/{docId} {
+      allow create: if request.auth != null;
+      allow read, write, delete: if false; // Only admin through Firebase Console
+    }
+    
+    // Approved colleges - anyone can read, only admin can write
+    match /colleges/{docId} {
+      allow read: if true;
+      allow write, delete: if false; // Only admin through Firebase Console
+    }
+    
+    // Approved courses - anyone can read, only admin can write
+    match /courses/{docId} {
+      allow read: if true;
+      allow write, delete: if false; // Only admin through Firebase Console
+    }
+    
+    // Approved interests - anyone can read, only admin can write
+    match /interests/{docId} {
+      allow read: if true;
+      allow write, delete: if false; // Only admin through Firebase Console
+    }
+    
+    // User sessions - users can only access their own sessions
+    match /sessions/{sessionId} {
+      allow read, write: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // User analytics - users can only access their own analytics
+    match /analytics/{analyticsId} {
+      allow read, write: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+} 

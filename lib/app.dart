@@ -3,10 +3,7 @@ import 'package:get/get.dart';
 import 'config/app_routes.dart';
 import 'config/colors.dart';
 import 'initial_pages/widgets/auth_wrapper.dart';
-import 'services/registration_service.dart';
-import 'services/storage_service.dart';
-import 'services/location_service.dart';
-import 'services/analytics_service.dart';
+import 'initial_pages/services/service_manager.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -19,11 +16,10 @@ class MyApp extends StatelessWidget {
       initialRoute: '/splash',
       routes: {'/': (context) => const AuthWrapper(), ...AppRoutes.getRoutes()},
       initialBinding: BindingsBuilder(() {
-        // Initialize all services
-        Get.put(RegistrationService());
-        Get.put(StorageService());
-        Get.put(LocationService());
-        Get.put(AnalyticsService());
+        // Initialize non-critical services in background with delay
+        Future.delayed(const Duration(seconds: 2), () {
+          ServiceManager().initializeNonCriticalServices();
+        });
       }),
       theme: ThemeData(
         useMaterial3: true,

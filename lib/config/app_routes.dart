@@ -3,8 +3,7 @@ import '../initial_pages/auth/splash_screen.dart';
 import '../initial_pages/auth/phone_input_screen.dart';
 import '../initial_pages/auth/otp_screen.dart';
 import '../initial_pages/main/home_screen.dart';
-import '../initial_pages/main/registration_screen.dart';
-import '../test/phase1_test_screen.dart';
+import '../registration/screens/registration_screen.dart';
 
 class AppRoutes {
   static const String splash = '/splash';
@@ -12,7 +11,6 @@ class AppRoutes {
   static const String otp = '/otp';
   static const String home = '/home';
   static const String registration = '/registration';
-  static const String phase1Test = '/phase1-test';
 
   static Map<String, WidgetBuilder> getRoutes() {
     return {
@@ -39,7 +37,6 @@ class AppRoutes {
         final phoneNumber = args['phoneNumber'] ?? '';
         return RegistrationScreen(phoneNumber: phoneNumber);
       },
-      phase1Test: (context) => const Phase1TestScreen(),
     };
   }
 }

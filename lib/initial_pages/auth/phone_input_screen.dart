@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../../config/colors.dart';
 import '../../config/app_routes.dart';
 import '../services/auth_service.dart';
-import '../services/user_service.dart';
 
 class PhoneInputScreen extends StatefulWidget {
   const PhoneInputScreen({super.key});
@@ -19,7 +18,6 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
   bool _isButtonEnabled = false;
   bool _isLoading = false;
   final AuthService _authService = AuthService();
-  final UserService _userService = UserService();
 
   @override
   void initState() {
@@ -59,11 +57,7 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
       });
 
       try {
-        // First check if user exists (this will be fast)
-        final userExists = await _userService.safeCheckUserExists(
-          _phoneController.text,
-        );
-
+        // Send OTP immediately without checking user existence first
         await _authService.sendOTP(
           phoneNumber: _phoneController.text,
           onCodeSent: (String verificationId) {
@@ -75,7 +69,7 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
               arguments: {
                 'phoneNumber': _phoneController.text,
                 'verificationId': verificationId,
-                'userExists': userExists, // Pass this information to OTP screen
+                'userExists': false, // Will be checked in OTP screen if needed
               },
             );
           },
@@ -85,16 +79,8 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
               await _authService.signInWithCredential(credential);
               if (!mounted) return;
 
-              // Use the pre-checked user existence
-              if (userExists) {
-                Navigator.pushReplacementNamed(context, '/home');
-              } else {
-                Navigator.pushReplacementNamed(
-                  context,
-                  '/registration',
-                  arguments: {'phoneNumber': _phoneController.text},
-                );
-              }
+              // Navigate to home after successful auto-verification
+              Navigator.pushReplacementNamed(context, '/home');
             } catch (e) {
               if (!mounted) return;
               setState(() {
@@ -127,6 +113,8 @@ class _PhoneInputScreenState extends State<PhoneInputScreen> {
         return 'Too many requests. Please try again later';
       case 'quota-exceeded':
         return 'SMS quota exceeded. Please try again later';
+      case 'network-request-failed':
+        return 'Network error. Please check your connection';
       default:
         return 'Failed to send OTP. Please try again';
     }

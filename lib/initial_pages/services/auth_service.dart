@@ -9,7 +9,7 @@ class AuthService {
   // Stream of auth state changes
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Send OTP to phone number
+  // Send OTP to phone number with optimized timeout
   Future<void> sendOTP({
     required String phoneNumber,
     required Function(String) onCodeSent,
@@ -47,7 +47,7 @@ class AuthService {
         codeAutoRetrievalTimeout: (String verificationId) {
           // Handle timeout if needed
         },
-        timeout: const Duration(seconds: 60),
+        timeout: const Duration(seconds: 30), // Reduced from 60 to 30 seconds
       );
     } catch (e) {
       try {
@@ -60,7 +60,7 @@ class AuthService {
     }
   }
 
-  // Verify OTP
+  // Verify OTP with better error handling
   Future<UserCredential?> verifyOTP({
     required String verificationId,
     required String smsCode,

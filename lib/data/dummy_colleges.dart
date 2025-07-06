@@ -1,4 +1,4 @@
-import '../models/college_model.dart';
+import 'models/college_model.dart';
 
 class DummyColleges {
   static List<CollegeModel> get colleges => [

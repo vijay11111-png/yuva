@@ -156,35 +156,22 @@ class _OtpScreenState extends State<OtpScreen> {
     if (!mounted) return;
 
     try {
+      // Ensure user document exists in Firestore
+      await _userService.ensureUserDocument(widget.phoneNumber);
+
       // Use pre-checked user existence for faster routing
       if (widget.userExists == true) {
         Navigator.pushReplacementNamed(context, '/home');
-      } else if (widget.userExists == false) {
+      } else {
+        // New users go to registration
         Navigator.pushReplacementNamed(
           context,
           '/registration',
           arguments: {'phoneNumber': widget.phoneNumber},
         );
-      } else {
-        // Fallback: check user existence if pre-check was not available
-        final userExists = await _userService.safeCheckUserExists(
-          widget.phoneNumber,
-        );
-
-        if (!mounted) return;
-
-        if (userExists) {
-          Navigator.pushReplacementNamed(context, '/home');
-        } else {
-          Navigator.pushReplacementNamed(
-            context,
-            '/registration',
-            arguments: {'phoneNumber': widget.phoneNumber},
-          );
-        }
       }
     } catch (e) {
-      // Fallback: Always allow registration if error occurs
+      // Fallback: Always go to registration if error occurs
       if (mounted) {
         Navigator.pushReplacementNamed(
           context,

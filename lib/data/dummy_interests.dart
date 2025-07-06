@@ -1,4 +1,4 @@
-import '../models/interest_model.dart';
+import 'models/interest_model.dart';
 
 class DummyInterests {
   static List<InterestModel> get interests => [
